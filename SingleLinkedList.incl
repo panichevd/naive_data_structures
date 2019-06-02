@@ -1,0 +1,198 @@
+template <typename T>
+List<T>::ListItem::ListItem(const T & data, ListItem * next) :
+	m_data(data),
+	m_next(next)
+{
+}
+
+template <typename T>
+List<T>::ListIterator::ListIterator() :
+	m_item(nullptr)
+{
+}
+
+template <typename T>
+List<T>::ListIterator::ListIterator(const ListIterator & it) :
+	m_item(it.m_item)
+{
+}
+
+template <typename T>
+List<T>::ListIterator::ListIterator(List<T>::ListItem * item) :
+	m_item(item)
+{
+}
+
+template <typename T>
+typename List<T>::ListIterator & List<T>::ListIterator::operator=(typename const List<T>::ListIterator & it)
+{
+	m_item = it.m_item;
+	return *this;
+}
+
+template <typename T>
+typename List<T>::ListIterator & List<T>::ListIterator::operator++()
+{
+	m_item = m_item->m_next;
+	return *this;
+}
+
+template <typename T>
+typename List<T>::ListIterator List<T>::ListIterator::operator++(int)
+{
+	ListIterator it = *this;
+	m_item = m_item->m_next;
+	return it;
+}
+
+template <typename T>
+List<T>::List(const List & list)
+{
+	do_copy(list);
+}
+
+template <typename T>
+List<T>::List(List<T> && list) :
+	m_head(list.m_head),
+	m_size(list.m_size)
+{
+	list.m_head = nullptr;
+	list.m_size = 0;
+}
+
+template <typename T>
+List<T>::~List()
+{
+	clear();
+}
+
+template <typename T>
+List<T> & List<T>::operator=(const List<T> & list)
+{
+	clear();
+	do_copy(list);
+	return *this;
+}
+
+template <typename T>
+List<T> & List<T>::operator=(List<T> && list)
+{
+	m_head = list.m_head;
+	m_size = list.m_size;
+
+	list.m_head = nullptr;
+	list.m_size = 0;
+
+	return *this;
+}
+
+template <typename T>
+void List<T>::push_front(T && value)
+{
+	m_head = new List<T>::ListItem(std::forward<T>(value), !empty() ? m_head : nullptr);
+	++m_size;
+}
+
+template <typename T>
+typename List<T>::ListIterator List<T>::insert(typename List<T>::ListIterator it, T && value)
+{
+	if (it == end()) {
+		return end();
+	}
+
+	auto it_next = it;
+	++it_next;
+
+	List<T>::ListItem * item = new List<T>::ListItem(std::forward<T>(value), it_next.m_item);
+	(it.m_item)->m_next = item;
+
+	++m_size;
+	return List<T>::ListIterator(item);
+}
+
+template <typename T>
+template <typename ... Args>
+void List<T>::emplace_front(Args && ... args)
+{
+	m_head = new ListItem<T>(T(std::forward<Args>(args)), !empty() ? m_head : nullptr);
+	++m_size;
+}
+
+template <typename T>
+template <typename ... Args>
+typename List<T>::ListIterator List<T>::emplace(typename List<T>::ListIterator it, Args && ... args)
+{
+	if (it == end()) {
+		return end();
+	}
+
+	auto it_next = it;
+	++it_next;
+
+	ListItem<T> * item = new ListItem<T>(T(std::forward<Args>(args)), it_next.m_item);
+	(it.m_item)->m_next = item;
+
+	++m_size;
+	return ListIterator<T>(item);
+}
+
+template <typename T>
+void List<T>::pop_front()
+{
+	if (empty()) {
+		return;
+	}
+
+	ListItem<T> * head = m_head;
+	m_head = m_head->m_next;
+	delete head;
+}
+
+template <typename T>
+typename List<T>::ListIterator List<T>::remove(typename List<T>::ListIterator it)
+{
+	if (it == end() || (it.m_item)->m_next == nullptr) {
+		return end();
+	}
+
+	List<T>::ListIterator next_it = it;
+	++next_it;
+
+	(it.m_item)->m_next = (next_it.m_item)->m_next;
+
+	delete next_it.m_item;
+	--m_size;
+
+	return it;
+}
+
+template<typename T>
+void List<T>::clear()
+{
+	while (m_head != nullptr) {
+		List<T>::ListItem * next = m_head->m_next;
+		delete m_head;
+		m_head = next;
+	}
+
+	m_size = 0;
+}
+
+template<typename T>
+void List<T>::do_copy(const List & list)
+{
+	ListItem<T> * list_current = nullptr;
+	if (list.m_head != nullptr) {
+		m_head = new ListItem<T>(list.m_head->m_data);
+		list_current = list.m_head->m_next;
+	}
+
+	ListItem<T> * current = m_head;
+	while (list_current != nullptr) {
+		current->m_next = new ListItem<T>(list_current->m_data);
+		current = current->m_next;
+		list_current = list_current->m_next;
+	}
+
+	m_size = list.m_size;
+}
