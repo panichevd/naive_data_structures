@@ -1,7 +1,15 @@
 template <typename T>
-List<T>::ListItem::ListItem(const T & data, ListItem * next) :
-	m_data(data),
-	m_next(next)
+List<T>::ListItem::ListItem(ListItem * next, const T & data) :
+	m_next(next),
+	m_data(data)
+{
+}
+
+template <typename T>
+template <typename ... Args>
+List<T>::ListItem::ListItem(ListItem * next, Args && ... args) :
+	m_next(next),
+	m_data(std::forward<Args>(args)...)
 {
 }
 
@@ -87,10 +95,34 @@ List<T> & List<T>::operator=(List<T> && list)
 }
 
 template <typename T>
+void List<T>::push_front(const T & value)
+{
+	m_head = new List<T>::ListItem(!empty() ? m_head : nullptr, value);
+	++m_size;
+}
+
+template <typename T>
 void List<T>::push_front(T && value)
 {
-	m_head = new List<T>::ListItem(std::forward<T>(value), !empty() ? m_head : nullptr);
+	m_head = new List<T>::ListItem(!empty() ? m_head : nullptr, std::move(value));
 	++m_size;
+}
+
+template <typename T>
+typename List<T>::ListIterator List<T>::insert(typename List<T>::ListIterator it, const T & value)
+{
+	if (it == end()) {
+		return end();
+	}
+
+	auto it_next = it;
+	++it_next;
+
+	List<T>::ListItem * item = new List<T>::ListItem(it_next.m_item, value);
+	(it.m_item)->m_next = item;
+
+	++m_size;
+	return List<T>::ListIterator(item);
 }
 
 template <typename T>
@@ -103,7 +135,7 @@ typename List<T>::ListIterator List<T>::insert(typename List<T>::ListIterator it
 	auto it_next = it;
 	++it_next;
 
-	List<T>::ListItem * item = new List<T>::ListItem(std::forward<T>(value), it_next.m_item);
+	List<T>::ListItem * item = new List<T>::ListItem(it_next.m_item, std::move(value), );
 	(it.m_item)->m_next = item;
 
 	++m_size;
@@ -114,7 +146,7 @@ template <typename T>
 template <typename ... Args>
 void List<T>::emplace_front(Args && ... args)
 {
-	m_head = new ListItem<T>(T(std::forward<Args>(args)), !empty() ? m_head : nullptr);
+	m_head = new List<T>::ListItem(!empty() ? m_head : nullptr, std::forward<Args>(args)...);
 	++m_size;
 }
 
@@ -129,11 +161,11 @@ typename List<T>::ListIterator List<T>::emplace(typename List<T>::ListIterator i
 	auto it_next = it;
 	++it_next;
 
-	ListItem<T> * item = new ListItem<T>(T(std::forward<Args>(args)), it_next.m_item);
+	List<T>::ListItem * item = new List<T>::ListItem(!empty() ? m_head : nullptr, std::forward<Args>(args)...);
 	(it.m_item)->m_next = item;
 
 	++m_size;
-	return ListIterator<T>(item);
+	return List<T>::ListIterator(item);
 }
 
 template <typename T>
@@ -143,7 +175,7 @@ void List<T>::pop_front()
 		return;
 	}
 
-	ListItem<T> * head = m_head;
+	List<T>::ListItem * head = m_head;
 	m_head = m_head->m_next;
 	delete head;
 }
@@ -163,7 +195,7 @@ typename List<T>::ListIterator List<T>::remove(typename List<T>::ListIterator it
 	delete next_it.m_item;
 	--m_size;
 
-	return it;
+	return ++it;
 }
 
 template<typename T>

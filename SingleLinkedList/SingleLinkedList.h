@@ -4,8 +4,6 @@
  * Naive single linked list implementation
  */
 
-// TODO: tests
-
 template <typename T>
 class List
 {
@@ -13,14 +11,17 @@ public:
 	class ListItem
 	{
 	public:
-		ListItem(const T & data, ListItem * next = nullptr);
+		ListItem(ListItem * next, const T & data);
+
+		template <typename ... Args>
+		ListItem(ListItem * next, Args && ... args);
 
 	private:
 		friend class List<T>;
 
 	private:
-		T m_data;
 		ListItem * m_next;
+		T m_data;
 	};
 
 	class ListIterator
@@ -78,16 +79,26 @@ public:
 	{ return m_size; }
 
 public:
-	// Iterators
+	// Access
 	ListIterator begin()
 	{ return ListIterator(m_head); }
 
 	ListIterator end()
 	{ return ListIterator(); }
 
+	T & front()
+	{ return *begin(); }
+
+	const T & front() const
+	{ return *begin(); }
+
 public:
+	// Cannot use perfect forwarding as T is already deduced without references
+
 	// Insert
+	void push_front(const T & value);
 	void push_front(T && value);
+	ListIterator insert(ListIterator it, const T & value);
 	ListIterator insert(ListIterator it, T && value);
 
 	template <typename ... Args>
