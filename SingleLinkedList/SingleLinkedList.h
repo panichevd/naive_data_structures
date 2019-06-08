@@ -12,117 +12,116 @@ template <typename T>
 class List
 {
 public:
-	class ListItem
-	{
-	public:
-		ListItem(ListItem * next, const T & data);
+    class ListItem
+    {
+    public:
+        ListItem(ListItem * next, const T & data);
 
-		template <typename ... Args>
-		ListItem(ListItem * next, Args && ... args);
+        template <typename ... Args>
+        ListItem(ListItem * next, Args && ... args);
 
-	private:
-		friend class List<T>;
+    private:
+        friend class List<T>;
 
-	private:
-		ListItem * m_next;
-		T m_data;
-	};
+    private:
+        ListItem * m_next;
+        T m_data;
+    };
 
-	class Iterator
-	{
-	public:
-		// Constructor
+    class Iterator
+    {
+    public:
+        // Constructor
         Iterator();
         Iterator(const Iterator & it);
         Iterator(List<T>::ListItem * item);
 
-	public:
-		// Operators
+    public:
+        // Operators
         Iterator & operator=(const Iterator & it);
 
-		bool operator==(const Iterator & it)
-		{ return m_item == it.m_item; }
+        bool operator==(const Iterator & it)
+        { return m_item == it.m_item; }
 
-		bool operator!=(const Iterator & it)
-		{ return m_item != it.m_item; }
+        bool operator!=(const Iterator & it)
+        { return m_item != it.m_item; }
 
-		const T & operator*() const
-		{ return m_item->m_data; }
-
-		T & operator*()
-		{ return m_item->m_data; }
+        const T & operator*() const
+        { return m_item->m_data; }
+        
+        T & operator*()
+        { return m_item->m_data; }
 
         Iterator & operator++();
         Iterator operator++(int);
 
-	private:
-		friend class List<T>;
+    private:
+        friend class List<T>;
 
-		List<T>::ListItem * m_item;
-	};
-
-public:
-	// Constructors/Destructor
-	List() = default;
-	List(const List & list);
-	List(List && list);
-
-	~List();
+        List<T>::ListItem * m_item;
+    };
 
 public:
-	// Assignment
-	List<T> & operator=(const List<T> & list);
-	List & operator=(List && list);	
+    // Constructors/Destructor
+    List() = default;
+    List(const List & list);
+    List(List && list);
+
+    ~List();
 
 public:
-	// Capacity
-	bool empty() const
-	{ return m_head == nullptr; }
-
-	size_t size() const
-	{ return m_size; }
+    // Assignment
+    List<T> & operator=(const List<T> & list);
+    List & operator=(List && list);	
 
 public:
-	// Access
-	Iterator begin()
-	{ return Iterator(m_head); }
+    // Capacity
+    bool empty() const
+    { return m_head == nullptr; }
 
-	Iterator end()
-	{ return Iterator(); }
-
-	T & front()
-	{ return *begin(); }
-
-	const T & front() const
-	{ return *begin(); }
+    size_t size() const
+    { return m_size; }
 
 public:
-	// Cannot use perfect forwarding as T is already deduced without references
+    // Access
+    Iterator begin()
+    { return Iterator(m_head); }
 
-	// Insert
-	void push_front(const T & value);
-	void push_front(T && value);
-	Iterator insert(Iterator it, const T & value);
-	Iterator insert(Iterator it, T && value);
+    Iterator end()
+    { return Iterator(); }
 
-	template <typename ... Args>
-	void emplace_front(Args && ... args);
-	template <typename ... Args>
-	Iterator emplace(Iterator it, Args && ... args);
+    T & front()
+    { return *begin(); }
+
+    const T & front() const
+    { return *begin(); }
 
 public:
-	// Remove
-	void pop_front();
-	Iterator remove(Iterator it);
+    // Cannot use perfect forwarding as T is already deduced without references
 
-	void clear();
+    void push_front(const T & value);
+    void push_front(T && value);
+
+    Iterator insert(Iterator it, const T & value);
+    Iterator insert(Iterator it, T && value);
+
+    template <typename ... Args>
+    void emplace_front(Args && ... args);
+    template <typename ... Args>
+    Iterator emplace(Iterator it, Args && ... args);
+
+public:
+    void pop_front();
+    Iterator remove(Iterator it);
+
+    void clear();
 
 private:
-	void do_copy(const List & list);
+    void do_copy(const List & list);
 
 private:
-	ListItem * m_head = nullptr;
-	size_t m_size = 0;
+    ListItem * m_head = nullptr;
+    size_t m_size = 0;
 };
 
 } /*namespace naive*/
