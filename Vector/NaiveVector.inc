@@ -421,6 +421,23 @@ typename Vector<T>::Iterator Vector<T>::erase(Vector<T>::Iterator pos)
 }
 
 template <typename T>
+typename Vector<T>::Iterator Vector<T>::erase(Iterator first, Iterator last)
+{
+	auto ret_it = first;
+	auto end_it = end();
+
+	for (Iterator it = last; first != last; ++first) {
+		if (it != end_it) {
+			*first = std::move(*it);
+			++it;
+		}
+		--m_size;
+	}
+
+	return ret_it;
+}
+
+template <typename T>
 template <typename ... Args>
 typename Vector<T>::Iterator Vector<T>::emplace(Vector<T>::ConstIterator pos, Args && ... args)
 {
@@ -486,7 +503,8 @@ void Vector<T>::push_back(const T & value)
         reserve(capacity);
     }
 
-    new (m_data + m_size*sizeof(T)) T(value);
+	m_data[m_size] = value;
+
     ++m_size;
 }
 
@@ -504,7 +522,7 @@ void Vector<T>::push_back(T && value)
         reserve(capacity);
     }
 
-    new (m_data + m_size * sizeof(T)) T(std::move(value));
+	m_data[m_size] = std::move(value);
     ++m_size;
 }
 

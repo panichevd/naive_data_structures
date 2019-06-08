@@ -128,6 +128,7 @@ public:
     Iterator emplace(ConstIterator pos, Args && ... args);
 
     Iterator erase(Iterator pos);
+    Iterator erase(Iterator first, Iterator last);
 
     void push_back(const T & value);
     void push_back(T && value);
