@@ -1,3 +1,5 @@
+namespace naive {
+
 template <typename T>
 List<T>::ListItem::ListItem(ListItem * next, const T & data) :
 	m_next(next),
@@ -14,41 +16,41 @@ List<T>::ListItem::ListItem(ListItem * next, Args && ... args) :
 }
 
 template <typename T>
-List<T>::ListIterator::ListIterator() :
+List<T>::Iterator::Iterator() :
 	m_item(nullptr)
 {
 }
 
 template <typename T>
-List<T>::ListIterator::ListIterator(const ListIterator & it) :
+List<T>::Iterator::Iterator(const Iterator & it) :
 	m_item(it.m_item)
 {
 }
 
 template <typename T>
-List<T>::ListIterator::ListIterator(List<T>::ListItem * item) :
+List<T>::Iterator::Iterator(List<T>::ListItem * item) :
 	m_item(item)
 {
 }
 
 template <typename T>
-typename List<T>::ListIterator & List<T>::ListIterator::operator=(typename const List<T>::ListIterator & it)
+typename List<T>::Iterator & List<T>::Iterator::operator=(typename const List<T>::Iterator & it)
 {
 	m_item = it.m_item;
 	return *this;
 }
 
 template <typename T>
-typename List<T>::ListIterator & List<T>::ListIterator::operator++()
+typename List<T>::Iterator & List<T>::Iterator::operator++()
 {
 	m_item = m_item->m_next;
 	return *this;
 }
 
 template <typename T>
-typename List<T>::ListIterator List<T>::ListIterator::operator++(int)
+typename List<T>::Iterator List<T>::Iterator::operator++(int)
 {
-	ListIterator it = *this;
+	Iterator it = *this;
 	m_item = m_item->m_next;
 	return it;
 }
@@ -109,7 +111,7 @@ void List<T>::push_front(T && value)
 }
 
 template <typename T>
-typename List<T>::ListIterator List<T>::insert(typename List<T>::ListIterator it, const T & value)
+typename List<T>::Iterator List<T>::insert(typename List<T>::Iterator it, const T & value)
 {
 	if (it == end()) {
 		return end();
@@ -122,11 +124,11 @@ typename List<T>::ListIterator List<T>::insert(typename List<T>::ListIterator it
 	(it.m_item)->m_next = item;
 
 	++m_size;
-	return List<T>::ListIterator(item);
+	return List<T>::Iterator(item);
 }
 
 template <typename T>
-typename List<T>::ListIterator List<T>::insert(typename List<T>::ListIterator it, T && value)
+typename List<T>::Iterator List<T>::insert(typename List<T>::Iterator it, T && value)
 {
 	if (it == end()) {
 		return end();
@@ -139,7 +141,7 @@ typename List<T>::ListIterator List<T>::insert(typename List<T>::ListIterator it
 	(it.m_item)->m_next = item;
 
 	++m_size;
-	return List<T>::ListIterator(item);
+	return List<T>::Iterator(item);
 }
 
 template <typename T>
@@ -152,7 +154,7 @@ void List<T>::emplace_front(Args && ... args)
 
 template <typename T>
 template <typename ... Args>
-typename List<T>::ListIterator List<T>::emplace(typename List<T>::ListIterator it, Args && ... args)
+typename List<T>::Iterator List<T>::emplace(typename List<T>::Iterator it, Args && ... args)
 {
 	if (it == end()) {
 		return end();
@@ -165,7 +167,7 @@ typename List<T>::ListIterator List<T>::emplace(typename List<T>::ListIterator i
 	(it.m_item)->m_next = item;
 
 	++m_size;
-	return List<T>::ListIterator(item);
+	return List<T>::Iterator(item);
 }
 
 template <typename T>
@@ -181,13 +183,13 @@ void List<T>::pop_front()
 }
 
 template <typename T>
-typename List<T>::ListIterator List<T>::remove(typename List<T>::ListIterator it)
+typename List<T>::Iterator List<T>::remove(typename List<T>::Iterator it)
 {
 	if (it == end() || (it.m_item)->m_next == nullptr) {
 		return end();
 	}
 
-	List<T>::ListIterator next_it = it;
+	List<T>::Iterator next_it = it;
 	++next_it;
 
 	(it.m_item)->m_next = (next_it.m_item)->m_next;
@@ -228,3 +230,5 @@ void List<T>::do_copy(const List & list)
 
 	m_size = list.m_size;
 }
+
+} /*namespace naive*/

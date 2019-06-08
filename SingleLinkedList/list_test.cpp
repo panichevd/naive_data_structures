@@ -3,6 +3,8 @@
 
 #include "SingleLinkedList.h"
 
+using namespace naive;
+
 bool check_empty()
 {
 	List<int> list;

@@ -4,6 +4,10 @@
  * Naive single linked list implementation
  */
 
+// TODO: const iterators 
+
+namespace naive {
+
 template <typename T>
 class List
 {
@@ -24,22 +28,22 @@ public:
 		T m_data;
 	};
 
-	class ListIterator
+	class Iterator
 	{
 	public:
 		// Constructor
-		ListIterator();
-		ListIterator(const ListIterator & it);
-		ListIterator(List<T>::ListItem * item);
+        Iterator();
+        Iterator(const Iterator & it);
+        Iterator(List<T>::ListItem * item);
 
 	public:
 		// Operators
-		ListIterator & operator=(const ListIterator & it);
+        Iterator & operator=(const Iterator & it);
 
-		bool operator==(const ListIterator & it)
+		bool operator==(const Iterator & it)
 		{ return m_item == it.m_item; }
 
-		bool operator!=(const ListIterator & it)
+		bool operator!=(const Iterator & it)
 		{ return m_item != it.m_item; }
 
 		const T & operator*() const
@@ -48,8 +52,8 @@ public:
 		T & operator*()
 		{ return m_item->m_data; }
 
-		ListIterator & operator++();
-		ListIterator operator++(int);
+        Iterator & operator++();
+        Iterator operator++(int);
 
 	private:
 		friend class List<T>;
@@ -80,11 +84,11 @@ public:
 
 public:
 	// Access
-	ListIterator begin()
-	{ return ListIterator(m_head); }
+	Iterator begin()
+	{ return Iterator(m_head); }
 
-	ListIterator end()
-	{ return ListIterator(); }
+	Iterator end()
+	{ return Iterator(); }
 
 	T & front()
 	{ return *begin(); }
@@ -98,18 +102,18 @@ public:
 	// Insert
 	void push_front(const T & value);
 	void push_front(T && value);
-	ListIterator insert(ListIterator it, const T & value);
-	ListIterator insert(ListIterator it, T && value);
+	Iterator insert(Iterator it, const T & value);
+	Iterator insert(Iterator it, T && value);
 
 	template <typename ... Args>
 	void emplace_front(Args && ... args);
 	template <typename ... Args>
-	ListIterator emplace(ListIterator it, Args && ... args);
+	Iterator emplace(Iterator it, Args && ... args);
 
 public:
 	// Remove
 	void pop_front();
-	ListIterator remove(ListIterator it);
+	Iterator remove(Iterator it);
 
 	void clear();
 
@@ -121,4 +125,6 @@ private:
 	size_t m_size = 0;
 };
 
-#include "SingleLinkedList.incl"
+} /*namespace naive*/
+
+#include "SingleLinkedList.inc"
