@@ -3,6 +3,8 @@
 
 #include "SingleLinkedList.h"
 
+#include <forward_list>
+
 using namespace naive;
 
 bool check_empty()
@@ -42,14 +44,12 @@ bool check_insert_clear()
 {
     List<int> list;
 
-    list.push_front(3);
-    int i = 5;
-
-    for (auto it = list.insert(list.begin(), i); i < 39; it = list.insert(it, i)) {
-        i += 2;
+    auto it = list.insert_after(list.before_begin(), 3);
+    for (int i = 5; i < 39; i += 2) {
+        it = list.insert_after(it, i);
     }
 
-    i = 3;
+    int i = 3;
     for (auto it = list.begin(); it != list.end(); ++it) {
 	    if (i != *it) {
             return false;
@@ -75,7 +75,7 @@ bool check_remove()
             return false;
         }
 
-        it = list.remove(it);
+        it = list.erase_after(it);
     }
 
     return true;
@@ -102,14 +102,12 @@ bool check_emplace_clear()
 {
     List<Test> list;
 
-    list.emplace_front(3, "B");
-
-    int i = 5;
-    for (auto it = list.emplace(list.begin(), i, "B"); i < 39; it = list.emplace(it, i, "B")) {
-        i += 2;
+    auto it = list.emplace_after(list.before_begin(), 3, "B");
+    for (int i = 5; i < 39; i += 2) {
+        it = list.emplace_after(it, i, "B");
     }
 
-    i = 3;
+    int i = 3;
     for (auto it = list.begin(); i < 39; ++it) {
         if (it == list.end() || i != (*it).m_int) {
             return false;
