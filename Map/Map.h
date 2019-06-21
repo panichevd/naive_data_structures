@@ -18,10 +18,25 @@ private:
         TreeNode(TreeNode * parent, const Key & key, const Value & value);
 
     public:
-        bool black() const
+        TreeNode* & parent()
+        { return m_parent; }
+
+        TreeNode* & left_child()
+        { return m_left_child; }
+
+        TreeNode* & right_child()
+        { return m_right_child; }
+
+        void set_black_color()
+        { m_black = true; }
+
+        void set_red_color()
+        { m_black = false; }
+
+        bool is_black() const
         { return m_black; }
 
-        bool red() const
+        bool is_red() const
         { return !m_black; }
 
     public:
@@ -30,13 +45,14 @@ private:
         TreeNode* sibling() const;
 
     public:
+        Key m_key;
+        Value m_value;
+
+    private:
         TreeNode * m_parent = nullptr;
         TreeNode * m_left_child = nullptr;
         TreeNode * m_right_child = nullptr;
         bool m_black = false;
-        
-        Key m_key;
-        Value m_value;
     };
 
 
@@ -135,14 +151,14 @@ void Map<Key, Value>::remove(const Key & key)
 
     node = find_one_non_leaf_child_node(node);
 
-    TreeNode * child_node = (node->m_left_child != nullptr) ? node->m_left_child : node->m_right_child;
+    TreeNode * child_node = (node->left_child() != nullptr) ? node->left_child() : node->right_child();
 
     // Case 1: Node is red. Then both its children are leafs
-    if (node->red()) {
-        if (node->m_parent->m_right_child == node) {
-            node->m_parent->m_right_child = nullptr;
+    if (node->is_red()) {
+        if (node->parent()->right_child() == node) {
+            node->parent()->right_child() = nullptr;
         } else {
-            node->m_parent->m_left_child = nullptr;
+            node->parent()->left_child() = nullptr;
         }
 
         delete node;
@@ -150,19 +166,19 @@ void Map<Key, Value>::remove(const Key & key)
     }
 
     // Case 2. Node is black and its child is red
-    if (child_node != nullptr && child_node->red()) {
-        if (node->m_parent != nullptr) {
-            if (node->m_parent->m_right_child == node) {
-                node->m_parent->m_right_child = child_node;
+    if (child_node != nullptr && child_node->is_red()) {
+        if (node->parent() != nullptr) {
+            if (node->parent()->right_child() == node) {
+                node->parent()->right_child() = child_node;
             } else {
-                node->m_parent->m_left_child = child_node;
+                node->parent()->left_child() = child_node;
             }
         } else {
             m_root = child_node;
         }
 
-        child_node->m_parent = node->m_parent;
-        child_node->m_black = true;
+        child_node->parent() = node->parent();
+        child_node->set_black_color();
 
         delete node;
         return;
@@ -171,12 +187,12 @@ void Map<Key, Value>::remove(const Key & key)
     // Case 3. Node is black and its both children are black. Because of RB trees properties they are leafs.
 
     // First delete the node
-    TreeNode * parent = node->m_parent;
+    TreeNode * parent = node->parent();
     if (parent != nullptr) {
-        if (parent->m_right_child == node) {
-            parent->m_right_child = child_node;
+        if (parent->right_child() == node) {
+            parent->right_child() = child_node;
         } else {
-            parent->m_left_child = child_node;
+            parent->left_child() = child_node;
         }
     } else {
         m_root = nullptr;
@@ -198,10 +214,10 @@ void Map<Key, Value>::do_remove_double_black_repair(TreeNode * node, TreeNode * 
     }
 
     // Case 3.2. Sibling is red
-    if (sibling->red()) {
-        parent->m_black = false;
-        sibling->m_black = true;
-        if (node == parent->m_left_child) {
+    if (sibling->is_red()) {
+        parent->set_red_color();
+        sibling->set_black_color();
+        if (node == parent->left_child()) {
             rotate_left(parent);
         } else {
             rotate_right(parent);
@@ -212,20 +228,20 @@ void Map<Key, Value>::do_remove_double_black_repair(TreeNode * node, TreeNode * 
     }
 
     // Case 3.3. Sibling is black and both sibling children are black
-    if ((sibling->m_left_child == nullptr || sibling->m_left_child->black()) &&
-        (sibling->m_right_child == nullptr || sibling->m_right_child->black())) {
+    if ((sibling->left_child()  == nullptr || sibling->left_child()->is_black()) &&
+        (sibling->right_child() == nullptr || sibling->right_child()->is_black())) {
 
-        if (parent->black()) {
+        if (parent->is_black()) {
             // Case 3.3.1. Parent is black
 
             // Recolor sibling to red. Now the subtree starting at parent is a valid RB tree, but its black height of every path in it is smaller by one than
             // black height of any other path in the whole tree. So we have to go upper in the tree and fix it again the same way.
-            sibling->m_black = false;
-            do_remove_double_black_repair(parent, parent->m_parent, parent->sibling());
+            sibling->set_red_color();
+            do_remove_double_black_repair(parent, parent->parent(), parent->sibling());
         } else {
             // Case 3.3.2. Parent is red
-            parent->m_black = true;
-            sibling->m_black = false;
+            parent->set_black_color();
+            sibling->set_red_color();
         }
 
         // In both cases we are done here.
@@ -238,29 +254,34 @@ void Map<Key, Value>::do_remove_double_black_repair(TreeNode * node, TreeNode * 
     }
 
     // Case 3.4. Node is a left child, sibling is black, its right child is black and left child is red (or symmetrically when node is a right child)
-    if (node == parent->m_left_child && (sibling->m_right_child == nullptr || sibling->m_right_child->black()) && (sibling->m_left_child != nullptr && sibling->m_left_child->red())) {
+    if (node == parent->left_child() && (sibling->right_child() == nullptr || sibling->right_child()->is_black()) && (sibling->left_child() != nullptr && sibling->left_child()->is_red())) {
         // Recolor and rotate around sibling. Now node has a new black sibling and a configuration which will be handled by case 3.5
-        sibling->m_black = false;
-        sibling->m_left_child->m_black = true;
+        sibling->set_red_color();
+        sibling->left_child()->set_black_color();
         rotate_right(sibling);
         sibling = node->sibling();
-    } else if (node == parent->m_right_child && (sibling->m_left_child == nullptr || sibling->m_left_child->black()) && (sibling->m_right_child != nullptr && sibling->m_right_child->red())){
-        sibling->m_black = false;
-        sibling->m_right_child->m_black = true;
+    } else if (node == parent->right_child() && (sibling->left_child() == nullptr || sibling->left_child()->is_black()) && (sibling->right_child() != nullptr && sibling->right_child()->is_red())){
+        sibling->set_red_color();
+        sibling->right_child()->set_black_color();
         rotate_left(sibling);
         sibling = node->sibling();
     }
 
     // Case 3.5. Here sibling is black and its right child is red (when node is a left  child)
     //                                  or its left  child is red (when node is a right child)
-    sibling->m_black = parent->m_black;
-    parent->m_black = true;
+    
+    if (parent->is_black()) {
+        sibling->set_black_color();
+    } else {
+        sibling->set_red_color();
+    }
+    parent->set_black_color();
 
-    if (node == parent->m_left_child) {
-        sibling->m_right_child->m_black = true;
+    if (node == parent->left_child()) {
+        sibling->right_child()->set_black_color();
         rotate_left(parent);
     } else {
-        sibling->m_left_child->m_black = true;
+        sibling->left_child()->set_black_color();
         rotate_right(parent);
     }
     // Now black-height is the same in the whole tree, so we are done
@@ -269,11 +290,11 @@ void Map<Key, Value>::do_remove_double_black_repair(TreeNode * node, TreeNode * 
 template <typename Key, typename Value>
 typename Map<Key, Value>::TreeNode * Map<Key, Value>::find_one_non_leaf_child_node(TreeNode * node)
 {
-    if (node->m_left_child == nullptr || node->m_right_child == nullptr) {
+    if (node->left_child() == nullptr || node->right_child() == nullptr) {
         return node;
     }
 
-    TreeNode * max_node_left_subtree = find_max(node->m_left_child);
+    TreeNode * max_node_left_subtree = find_max(node->left_child());
 
     // TODO: this is ugly... work on the nodes instead of keys/ values
     node->m_key = max_node_left_subtree->m_key;
@@ -300,20 +321,20 @@ typename Map<Key, Value>::TreeNode * Map<Key, Value>::do_find(TreeNode * node, c
     }
 
     if (node->m_key < key) {
-        return do_find(node->m_right_child, key);
+        return do_find(node->right_child(), key);
     }
 
-    return do_find(node->m_left_child, key);
+    return do_find(node->left_child(), key);
 }
 
 template <typename Key, typename Value>
 typename Map<Key, Value>::TreeNode * Map<Key, Value>::find_max(TreeNode * node) const
 {
-    if (node->m_right_child == nullptr) {
+    if (node->right_child() == nullptr) {
         return node;
     }
 
-    return find_max(node->m_right_child);
+    return find_max(node->right_child());
 }
 
 template <typename Key, typename Value>
@@ -325,9 +346,9 @@ typename Map<Key,Value>::TreeNode * Map<Key, Value>::do_insert(TreeNode * node, 
     }
 
     if (key < node->m_key) {
-        node->m_left_child  = do_insert(node->m_left_child, node, key, value, inserted_node);
+        node->left_child() = do_insert(node->left_child(), node, key, value, inserted_node);
     } else if (key > node->m_key) {
-        node->m_right_child = do_insert(node->m_right_child, node, key, value, inserted_node);
+        node->right_child() = do_insert(node->right_child(), node, key, value, inserted_node);
     } else {
         inserted_node = node;
     }
@@ -338,16 +359,16 @@ typename Map<Key,Value>::TreeNode * Map<Key, Value>::do_insert(TreeNode * node, 
 template <typename Key, typename Value>
 void Map<Key, Value>::do_insert_repair(TreeNode * node)
 {
-    TreeNode * parent = node->m_parent;
+    TreeNode * parent = node->parent();
 
     // Case 1. Node is root
     if (parent == nullptr) {
-        node->m_black = true;
+        node->set_black_color();
         return;
     }
     
     // Case 2. Parent is black
-    if (parent->black()) {
+    if (parent->is_black()) {
         return;
     }
 
@@ -355,26 +376,26 @@ void Map<Key, Value>::do_insert_repair(TreeNode * node)
     TreeNode * grandparent = node->grandparent();
 
     // Case 3. Parent is red. Uncle is red
-    if (uncle != nullptr && uncle->red()) {
-        parent->m_black = true;
-        uncle->m_black = true;
-        grandparent->m_black = false;
+    if (uncle != nullptr && uncle->is_red()) {
+        parent->set_black_color();
+        uncle->set_black_color();
+        grandparent->set_red_color();
         do_insert_repair(grandparent);
         return;
     }
 
     // Case 4. Parent is red. Uncle is black.
     // TODO: rewrite is with rotate_left/rotate_right
-    if (parent == grandparent->m_left_child) {
+    if (parent == grandparent->left_child()) {
         // Left Rotate
-        if (node == parent->m_right_child) {
+        if (node == parent->right_child()) {
             lr_rotate(node);
         } else {
             ll_rotate(node);
         }
     } else {
         // Right Rotate
-        if (node == parent->m_left_child) {
+        if (node == parent->left_child()) {
             rl_rotate(node);
         } else {
             rr_rotate(node);
@@ -385,20 +406,20 @@ void Map<Key, Value>::do_insert_repair(TreeNode * node)
 template <typename Key, typename Value>
 void Map<Key, Value>::lr_rotate(TreeNode * node)
 {
-    TreeNode * parent = node->m_parent;
+    TreeNode * parent = node->parent();
     TreeNode * uncle = node->uncle();
     TreeNode * grandparent = node->grandparent();
 
-    parent->m_right_child = node->m_left_child;
-    if (parent->m_right_child != nullptr) {
-        parent->m_right_child->m_parent = parent;
+    parent->right_child() = node->left_child();
+    if (parent->right_child() != nullptr) {
+        parent->right_child()->parent() = parent;
     }
 
-    node->m_left_child = parent;
-    parent->m_parent = node;
+    node->left_child() = parent;
+    parent->parent() = node;
 
-    grandparent->m_left_child = node;
-    node->m_parent = grandparent;
+    grandparent->left_child() = node;
+    node->parent() = grandparent;
 
     ll_rotate(parent);
 }
@@ -406,53 +427,53 @@ void Map<Key, Value>::lr_rotate(TreeNode * node)
 template <typename Key, typename Value>
 void Map<Key, Value>::ll_rotate(TreeNode * node)
 {
-    TreeNode * parent = node->m_parent;
+    TreeNode * parent = node->parent();
     TreeNode * uncle = node->uncle();
     TreeNode * grandparent = node->grandparent();
     TreeNode * grandgrandparent = parent->grandparent();
 
-    grandparent->m_left_child = parent->m_right_child;
-    if (grandparent->m_left_child != nullptr) {
-        grandparent->m_left_child->m_parent = grandparent;
+    grandparent->left_child() = parent->parent();
+    if (grandparent->left_child() != nullptr) {
+        grandparent->left_child()->parent() = grandparent;
     }
 
     if (grandgrandparent != nullptr) {
-        if (grandgrandparent->m_left_child == grandparent) {
-            grandgrandparent->m_left_child = parent;
+        if (grandgrandparent->left_child() == grandparent) {
+            grandgrandparent->left_child() = parent;
         } else {
-            grandgrandparent->m_right_child = parent;
+            grandgrandparent->right_child() = parent;
         }
 
-        parent->m_parent = grandgrandparent;
+        parent->parent() = grandgrandparent;
     } else {
-        parent->m_parent = nullptr;
+        parent->parent() = nullptr;
         m_root = parent;
     }
 
-    parent->m_right_child = grandparent;
-    grandparent->m_parent = parent;
+    parent->right_child() = grandparent;
+    grandparent->parent() = parent;
 
-    parent->m_black = true;
-    grandparent->m_black = false;
+    parent->set_black_color();
+    grandparent->set_red_color();
 }
 
 template <typename Key, typename Value>
 void Map<Key, Value>::rl_rotate(TreeNode * node)
 {
-    TreeNode * parent = node->m_parent;
+    TreeNode * parent = node->parent();
     TreeNode * uncle = node->uncle();
     TreeNode * grandparent = node->grandparent();
 
-    parent->m_left_child = node->m_right_child;
-    if (parent->m_left_child != nullptr) {
-        parent->m_left_child->m_parent = parent;
+    parent->left_child() = node->right_child();
+    if (parent->left_child() != nullptr) {
+        parent->left_child()->parent() = parent;
     }
 
-    node->m_right_child = parent;
-    parent->m_parent = node;
+    node->right_child() = parent;
+    parent->parent() = node;
 
-    grandparent->m_right_child = node;
-    node->m_parent = grandparent;
+    grandparent->right_child() = node;
+    node->parent() = grandparent;
 
     rr_rotate(parent);
 }
@@ -460,84 +481,84 @@ void Map<Key, Value>::rl_rotate(TreeNode * node)
 template <typename Key, typename Value>
 void Map<Key, Value>::rr_rotate(TreeNode * node)
 {
-    TreeNode * parent = node->m_parent;
+    TreeNode * parent = node->parent();
     TreeNode * uncle = node->uncle();
     TreeNode * grandparent = node->grandparent();
     TreeNode * grandgrandparent = parent->grandparent();
 
-    grandparent->m_right_child = parent->m_left_child;
-    if (grandparent->m_right_child != nullptr) {
-        grandparent->m_right_child->m_parent = grandparent;
+    grandparent->right_child() = parent->left_child();
+    if (grandparent->right_child() != nullptr) {
+        grandparent->right_child()->parent() = grandparent;
     }
 
     if (grandgrandparent != nullptr) {
-        if (grandgrandparent->m_left_child == grandparent) {
-            grandgrandparent->m_left_child = parent;
+        if (grandgrandparent->left_child() == grandparent) {
+            grandgrandparent->left_child() = parent;
         } else {
-            grandgrandparent->m_right_child = parent;
+            grandgrandparent->right_child() = parent;
         }
 
-        parent->m_parent = grandgrandparent;
+        parent->parent() = grandgrandparent;
     } else {
-        parent->m_parent = nullptr;
+        parent->parent() = nullptr;
         m_root = parent;
     }
 
-    parent->m_left_child = grandparent;
-    grandparent->m_parent = parent;
+    parent->left_child() = grandparent;
+    grandparent->parent() = parent;
 
-    parent->m_black = true;
-    grandparent->m_black = false;
+    parent->set_black_color();
+    grandparent->set_red_color();
 }
 
 template <typename Key, typename Value>
 void Map<Key, Value>::rotate_left(TreeNode * node)
 {
-    TreeNode * child = node->m_right_child;
+    TreeNode * child = node->right_child();
 
-    child->m_parent = node->m_parent;
-    if (node->m_parent != nullptr) {
-        if (node == node->m_parent->m_left_child) {
-            node->m_parent->m_left_child = child;
+    child->parent() = node->parent();
+    if (node->parent() != nullptr) {
+        if (node == node->parent()->left_child()) {
+            node->parent()->left_child() = child;
         } else {
-            node->m_parent->m_right_child = child;
+            node->parent()->right_child() = child;
         }
     } else {
         m_root = child;
     }
 
-    node->m_right_child = child->m_left_child;
-    if (node->m_right_child != nullptr) {
-        node->m_right_child->m_parent = node;
+    node->right_child() = child->left_child();
+    if (node->right_child() != nullptr) {
+        node->right_child()->parent() = node;
     }
 
-    child->m_left_child = node;
-    node->m_parent = child;
+    child->left_child() = node;
+    node->parent() = child;
 }
 
 template <typename Key, typename Value>
 void Map<Key, Value>::rotate_right(TreeNode * node)
 {
-    TreeNode * child = node->m_left_child;
+    TreeNode * child = node->left_child();
 
-    child->m_parent = node->m_parent;
-    if (node->m_parent != nullptr) {
-        if (node == node->m_parent->m_left_child) {
-            node->m_parent->m_left_child = child;
+    child->parent() = node->parent();
+    if (node->parent() != nullptr) {
+        if (node == node->parent()->left_child()) {
+            node->parent()->left_child() = child;
         } else {
-            node->m_parent->m_right_child = child;
+            node->parent()->right_child() = child;
         }
     } else {
         m_root = child;
     }
 
-    node->m_left_child = child->m_right_child;
-    if (node->m_left_child != nullptr) {
-        node->m_left_child->m_parent = node;
+    node->left_child() = child->right_child();
+    if (node->left_child() != nullptr) {
+        node->left_child()->parent() = node;
     }
 
-    child->m_right_child = node;
-    node->m_parent = child;
+    child->right_child() = node;
+    node->parent() = child;
 }
 
 } /*namespace naive*/
