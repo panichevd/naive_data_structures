@@ -62,14 +62,26 @@ private:
 
 public:
     Map() = default;
+    Map(const Map & map);
+    Map(Map && map);
+    ~Map();
 
 public:
+    bool empty() const;
+    size_t size() const;
+
+public:
+    void clear();
+
     // TODO: retval
     void insert(const Key & key, const Value & value);
 
     void remove(const Key & key);
 
     TreeNode * find(const Key & key) const;
+
+private:
+    void do_clear(TreeNode * node);
 
 private:
     TreeNode * do_insert(TreeNode * node, TreeNode * parent, const Key & key, const Value & value, TreeNode* & inserted_node);
@@ -97,6 +109,7 @@ private:
 
 private:
     TreeNode * m_root = nullptr;
+    size_t m_size = 0;
 };
 
 template <typename Key, typename Value>
@@ -140,12 +153,59 @@ typename Map<Key, Value>::TreeNode * Map<Key, Value>::TreeNode::sibling() const
 }
 
 template <typename Key, typename Value>
+Map<Key, Value>::Map(const Map & map)
+{
+    // TODO
+}
+
+template <typename Key, typename Value>
+Map<Key, Value>::Map(Map && map) :
+    m_root(map.m_root),
+    m_size(map.m_size)
+{
+    map.m_root = nullptr;
+    map.m_size = 0;
+}
+
+template <typename Key, typename Value>
+Map<Key, Value>::~Map()
+{
+    if (m_root != nullptr) {
+        do_clear(m_root);
+    }
+}
+
+template <typename Key, typename Value>
+bool Map<Key, Value>::empty() const
+{
+    return m_size == 0;
+}
+
+template <typename Key, typename Value>
+size_t Map<Key, Value>::size() const
+{
+    return m_size;
+}
+
+template <typename Key, typename Value>
+void Map<Key, Value>::clear()
+{
+    if (m_root != nullptr) {
+        do_clear(m_root);
+        m_root = nullptr;
+        m_size = 0;
+    }
+}
+
+template <typename Key, typename Value>
 void Map<Key, Value>::insert(const Key & key, const Value & value)
 {
     TreeNode * inserted_node = nullptr;
     m_root = do_insert(m_root, nullptr, key, value, inserted_node);
 
     do_insert_repair(inserted_node);
+
+    ++m_size;
 }
 
 template <typename Key, typename Value>
@@ -207,6 +267,22 @@ void Map<Key, Value>::remove(const Key & key)
 
     // Now fix the tree
     do_remove_double_black_repair(child_node, parent, sibling);
+
+    --m_size;
+}
+
+template <typename Key, typename Value>
+void Map<Key, Value>::do_clear(TreeNode * node)
+{
+    if (node->left_child() != nullptr) {
+        do_clear(node->left_child());
+    }
+
+    if (node->right_child() != nullptr) {
+        do_clear(node->right_child());
+    }
+
+    delete node;
 }
 
 template <typename Key, typename Value>
@@ -419,7 +495,6 @@ void Map<Key, Value>::do_insert_repair(TreeNode * node)
     }
 
     // Case 4. Parent is red. Uncle is black.
-    // TODO: rewrite is with rotate_left/rotate_right
     if (parent == grandparent->left_child()) {
         // Left Rotate
         if (node == parent->right_child()) {
@@ -440,109 +515,35 @@ void Map<Key, Value>::do_insert_repair(TreeNode * node)
 template <typename Key, typename Value>
 void Map<Key, Value>::lr_rotate(TreeNode * node)
 {
-    TreeNode * parent = node->parent();
-    TreeNode * uncle = node->uncle();
-    TreeNode * grandparent = node->grandparent();
-
-    parent->right_child() = node->left_child();
-    if (parent->right_child() != nullptr) {
-        parent->right_child()->parent() = parent;
-    }
-
-    node->left_child() = parent;
-    parent->parent() = node;
-
-    grandparent->left_child() = node;
-    node->parent() = grandparent;
-
-    ll_rotate(parent);
+    rotate_left(node->parent());
+    ll_rotate(node->left_child());
 }
 
 template <typename Key, typename Value>
 void Map<Key, Value>::ll_rotate(TreeNode * node)
 {
-    TreeNode * parent = node->parent();
-    TreeNode * uncle = node->uncle();
+    node->parent()->set_black_color();
+
     TreeNode * grandparent = node->grandparent();
-    TreeNode * grandgrandparent = parent->grandparent();
-
-    grandparent->left_child() = parent->parent();
-    if (grandparent->left_child() != nullptr) {
-        grandparent->left_child()->parent() = grandparent;
-    }
-
-    if (grandgrandparent != nullptr) {
-        if (grandgrandparent->left_child() == grandparent) {
-            grandgrandparent->left_child() = parent;
-        } else {
-            grandgrandparent->right_child() = parent;
-        }
-
-        parent->parent() = grandgrandparent;
-    } else {
-        parent->parent() = nullptr;
-        m_root = parent;
-    }
-
-    parent->right_child() = grandparent;
-    grandparent->parent() = parent;
-
-    parent->set_black_color();
     grandparent->set_red_color();
+    rotate_right(grandparent);
 }
 
 template <typename Key, typename Value>
 void Map<Key, Value>::rl_rotate(TreeNode * node)
 {
-    TreeNode * parent = node->parent();
-    TreeNode * uncle = node->uncle();
-    TreeNode * grandparent = node->grandparent();
-
-    parent->left_child() = node->right_child();
-    if (parent->left_child() != nullptr) {
-        parent->left_child()->parent() = parent;
-    }
-
-    node->right_child() = parent;
-    parent->parent() = node;
-
-    grandparent->right_child() = node;
-    node->parent() = grandparent;
-
-    rr_rotate(parent);
+    rotate_right(node->parent());
+    rr_rotate(node->right_child());
 }
 
 template <typename Key, typename Value>
 void Map<Key, Value>::rr_rotate(TreeNode * node)
 {
-    TreeNode * parent = node->parent();
-    TreeNode * uncle = node->uncle();
+    node->parent()->set_black_color();
+
     TreeNode * grandparent = node->grandparent();
-    TreeNode * grandgrandparent = parent->grandparent();
-
-    grandparent->right_child() = parent->left_child();
-    if (grandparent->right_child() != nullptr) {
-        grandparent->right_child()->parent() = grandparent;
-    }
-
-    if (grandgrandparent != nullptr) {
-        if (grandgrandparent->left_child() == grandparent) {
-            grandgrandparent->left_child() = parent;
-        } else {
-            grandgrandparent->right_child() = parent;
-        }
-
-        parent->parent() = grandgrandparent;
-    } else {
-        parent->parent() = nullptr;
-        m_root = parent;
-    }
-
-    parent->left_child() = grandparent;
-    grandparent->parent() = parent;
-
-    parent->set_black_color();
     grandparent->set_red_color();
+    rotate_left(grandparent);
 }
 
 template <typename Key, typename Value>
