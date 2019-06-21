@@ -10,7 +10,6 @@ template <typename Key, typename Value>
 class Map
 {
 private:
-    // TODO: accessors (for safety)
     class TreeNode
     {
     public:
@@ -27,6 +26,9 @@ private:
         TreeNode* & right_child()
         { return m_right_child; }
 
+        void set_color(bool black)
+        { m_black = black; }
+
         void set_black_color()
         { m_black = true; }
 
@@ -39,20 +41,22 @@ private:
         bool is_red() const
         { return !m_black; }
 
+        const Key & key() const
+        { return m_key; }
+
     public:
         TreeNode* uncle() const;
         TreeNode* grandparent() const;
         TreeNode* sibling() const;
-
-    public:
-        Key m_key;
-        Value m_value;
 
     private:
         TreeNode * m_parent = nullptr;
         TreeNode * m_left_child = nullptr;
         TreeNode * m_right_child = nullptr;
         bool m_black = false;
+
+        Key m_key;
+        Value m_value;
     };
 
 
@@ -270,11 +274,7 @@ void Map<Key, Value>::do_remove_double_black_repair(TreeNode * node, TreeNode * 
     // Case 3.5. Here sibling is black and its right child is red (when node is a left  child)
     //                                  or its left  child is red (when node is a right child)
     
-    if (parent->is_black()) {
-        sibling->set_black_color();
-    } else {
-        sibling->set_red_color();
-    }
+    sibling->set_color(parent->is_black());
     parent->set_black_color();
 
     if (node == parent->left_child()) {
@@ -294,13 +294,47 @@ typename Map<Key, Value>::TreeNode * Map<Key, Value>::find_one_non_leaf_child_no
         return node;
     }
 
-    TreeNode * max_node_left_subtree = find_max(node->left_child());
+    TreeNode * child = find_max(node->left_child());
 
-    // TODO: this is ugly... work on the nodes instead of keys/ values
-    node->m_key = max_node_left_subtree->m_key;
-    node->m_value = std::move(max_node_left_subtree->m_value);
+    // Swap the nodes
+    child->right_child() = node->right_child();
+    child->right_child()->parent() = child; // right child of node is not null as per condition in the method start
+    node->right_child() = nullptr; // right child of max_node_left_subtree is nullptr as it is max element in the subtree
 
-    return max_node_left_subtree;
+    TreeNode * node_left_child = node->left_child();
+    node->left_child() = child->left_child();
+    if (node->left_child() != nullptr) {
+        node->left_child()->parent() = node;
+    }
+
+    TreeNode * child_parent = child->parent();
+    if (node->parent() != nullptr) {
+        if (node->parent()->left_child() == node) {
+            node->parent()->left_child() = child;
+        } else {
+            node->parent()->right_child() = child;
+        }
+    } else {
+        m_root = child;
+    }
+    child->parent() = node->parent();
+
+    if (node_left_child == child) {
+        child->left_child() = node;
+        node->parent() = child;
+    } else {
+        child->left_child() = node_left_child;
+        child->left_child()->parent() = child; // child->left_child() is not nullptr as we went left from node while searching for the child
+
+        node->parent() = child_parent;
+        node->parent()->right_child() = node; // We always went right in the left subtree, and it is not the first node
+    }
+
+    bool tmp_color = child->is_black();
+    child->set_color(node->is_black());
+    node->set_color(tmp_color);
+
+    return node;
 }
 
 template <typename Key, typename Value>
@@ -316,15 +350,15 @@ typename Map<Key, Value>::TreeNode * Map<Key, Value>::do_find(TreeNode * node, c
         return nullptr;
     }
 
-    if (node->m_key == key) {
+    if (key == node->key()) {
         return node;
     }
 
-    if (node->m_key < key) {
-        return do_find(node->right_child(), key);
+    if (key < node->key()) {
+        return do_find(node->left_child(), key);
     }
 
-    return do_find(node->left_child(), key);
+    return do_find(node->right_child(), key);
 }
 
 template <typename Key, typename Value>
@@ -345,9 +379,9 @@ typename Map<Key,Value>::TreeNode * Map<Key, Value>::do_insert(TreeNode * node, 
         return inserted_node;
     }
 
-    if (key < node->m_key) {
+    if (key < node->key()) {
         node->left_child() = do_insert(node->left_child(), node, key, value, inserted_node);
-    } else if (key > node->m_key) {
+    } else if (key > node->key()) {
         node->right_child() = do_insert(node->right_child(), node, key, value, inserted_node);
     } else {
         inserted_node = node;
