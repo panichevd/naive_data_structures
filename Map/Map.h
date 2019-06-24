@@ -1,10 +1,11 @@
 #pragma once
 
+#include <cassert>
 #include <utility>
 
 namespace naive {
 
-// TODO: Iterators
+// TODO: Const Iterators
 
 template <typename Key, typename Value>
 class Map
@@ -14,7 +15,9 @@ private:
     {
     public:
         TreeNode() = default;
-        TreeNode(TreeNode * parent, const Key & key, const Value & value);
+
+        template <typename K, typename V>
+        TreeNode(TreeNode * parent, K && key, V && value);
 
     public:
         TreeNode* & parent()
@@ -44,6 +47,12 @@ private:
         const Key & key() const
         { return m_key; }
 
+        const Value & value() const
+        { return m_value; }
+
+        Value & value()
+        { return m_value; }
+
     public:
         TreeNode* uncle() const;
         TreeNode* grandparent() const;
@@ -59,12 +68,70 @@ private:
         Value m_value;
     };
 
+public:
+    class Iterator
+    {
+    public:
+        Iterator() = default;
+        explicit Iterator(TreeNode * current);
+        Iterator(TreeNode * current, TreeNode * previous);
+        //Iterator(const Iterator & it);
+
+    public:
+        // TODO: better solution
+        std::pair<Key, Value> operator*() const
+        {
+            return std::make_pair(m_current->key(), m_current->value());
+        }
+
+        Value & value()
+        { return m_current->value(); }
+
+        /*T & operator*()
+        {
+            return *m_ptr;
+        }*/
+
+        Iterator & operator++();
+        Iterator operator++(int);
+
+        /*Iterator & operator--();
+        Iterator operator--(int);*/
+
+        bool operator==(const Iterator & it);
+        //bool operator==(const ConstIterator & it);
+        bool operator!=(const Iterator & it);
+        //bool operator!=(const ConstIterator & it);*/
+
+    private:
+        TreeNode * m_current = nullptr;
+        TreeNode * m_previous = nullptr;;
+    };
+
+public:
+    static TreeNode * find_min(TreeNode * node);
+    static TreeNode * find_max(TreeNode * node);
 
 public:
     Map() = default;
     Map(const Map & map);
     Map(Map && map);
     ~Map();
+
+    Map & operator=(const Map & map);
+    Map & operator=(Map && map);
+
+public:
+    Value & at(const Key & key);
+    const Value & at(const Key & key) const;
+
+    Value & operator[](const Key & key);
+    Value & operator[](Key && key);
+
+public:
+    // TODO cbegin, cend
+    Iterator begin();
+    Iterator end();
 
 public:
     bool empty() const;
@@ -73,18 +140,21 @@ public:
 public:
     void clear();
 
-    // TODO: retval
-    void insert(const Key & key, const Value & value);
+    std::pair<Iterator, bool> insert(const std::pair<const Key, Value> & value);
+    std::pair<Iterator, bool> insert(std::pair<const Key, Value> && value);
 
     void remove(const Key & key);
 
-    TreeNode * find(const Key & key) const;
+    //TreeNode * find(const Key & key) const;
 
 private:
+    TreeNode * do_copy(TreeNode * parent, TreeNode * source_node);
     void do_clear(TreeNode * node);
 
 private:
-    TreeNode * do_insert(TreeNode * node, TreeNode * parent, const Key & key, const Value & value, TreeNode* & inserted_node);
+    template <typename K, typename V>
+    TreeNode * do_insert(TreeNode * node, TreeNode * parent, K && key, V && value, TreeNode* & inserted_node, bool & inserted);
+
     void do_insert_repair(TreeNode * node);
 
     void lr_rotate(TreeNode * node);
@@ -103,9 +173,8 @@ private:
     TreeNode * find_one_non_leaf_child_node(TreeNode * node);
 
 private:
+    TreeNode * do_find(const Key & key) const;
     TreeNode * do_find(TreeNode * node, const Key & key) const;
-
-    TreeNode * find_max(TreeNode * node) const;
 
 private:
     TreeNode * m_root = nullptr;
@@ -113,10 +182,11 @@ private:
 };
 
 template <typename Key, typename Value>
-Map<Key, Value>::TreeNode::TreeNode(TreeNode * parent, const Key & key, const Value & value) :
+template <typename K, typename V>
+Map<Key, Value>::TreeNode::TreeNode(TreeNode * parent, K && key, V && value) :
     m_parent(parent),
-    m_key(key),
-    m_value(value)
+    m_key(std::forward<K>(key)),
+    m_value(std::forward<V>(value))
 {
 }
 
@@ -153,9 +223,108 @@ typename Map<Key, Value>::TreeNode * Map<Key, Value>::TreeNode::sibling() const
 }
 
 template <typename Key, typename Value>
-Map<Key, Value>::Map(const Map & map)
+Map<Key, Value>::Iterator::Iterator(TreeNode * current) :
+    m_current(current)
 {
-    // TODO
+    if (m_current->left_child() != nullptr) {
+        m_previous = m_current->left_child();
+    } else {
+        m_previous = m_current->parent();
+    }
+}
+
+template <typename Key, typename Value>
+Map<Key, Value>::Iterator::Iterator(TreeNode * current, TreeNode * previous) :
+    m_current(current),
+    m_previous(previous)
+{
+}
+
+template <typename Key, typename Value>
+typename Map<Key, Value>::Iterator & Map<Key, Value>::Iterator::operator++()
+{
+    while (true) {
+        // End when we're at the root and there is either no right subtree or we have already traversed it
+        if (m_current->parent() == nullptr &&
+                (m_current->right_child() == nullptr || m_previous == m_current->right_child())) {
+            m_previous = m_current = nullptr;
+            return *this;
+        }
+
+        if (m_previous == m_current->parent() || m_previous == m_current->left_child()) {
+            // If we came from above or left - means we have already been at the left subtree
+
+            // First try to go to the min node of the right subtree
+            if (m_current->right_child() != nullptr) {
+                m_current = Map::find_min(m_current->right_child());
+                m_previous = m_current->parent();
+                return *this;
+            }
+
+            // As there is no right element, go up
+            m_previous = m_current;
+            m_current = m_current->parent();
+            if (m_previous->parent()->left_child() == m_previous) {
+                // If we were at the left subtree - it is the next element
+                return *this;
+            }
+        } else {
+            // If we came from right - we can only go up
+            m_previous = m_current;
+            m_current = m_current->parent();
+            if (m_previous->parent()->left_child() == m_previous) {
+                // If we were at the left subtree - it is the next element
+                return *this;
+            }
+        }
+    }
+
+    assert(false);
+    return *this;
+}
+
+template <typename Key, typename Value>
+typename Map<Key, Value>::Iterator Map<Key, Value>::Iterator::operator++(int)
+{
+    Iterator it = *this;
+    operator++();
+    return it;
+}
+
+template <typename Key, typename Value>
+bool Map<Key, Value>::Iterator::operator==(const Iterator & it)
+{
+    return m_current == it.m_current;
+}
+
+template <typename Key, typename Value>
+bool Map<Key, Value>::Iterator::operator!=(const Iterator & it)
+{
+    return m_current != it.m_current;
+}
+
+template <typename Key, typename Value>
+Map<Key, Value>::Map(const Map & map) :
+    m_size(map.m_size)
+{
+    m_root = do_copy(nullptr, map.m_root);
+}
+
+template <typename Key, typename Value>
+Map<Key, Value> & Map<Key, Value>::operator=(const Map & map)
+{
+    clear();
+    m_size = map.m_size;
+    m_root = do_copy(nullptr, map.m_root);
+    return *this;
+}
+
+template <typename Key, typename Value>
+Map<Key, Value> & Map<Key, Value>::operator=(Map && map)
+{
+    std::swap(m_size, map.m_size);
+    std::swap(m_root, map.m_root);
+    return *this;
 }
 
 template <typename Key, typename Value>
@@ -173,6 +342,65 @@ Map<Key, Value>::~Map()
     if (m_root != nullptr) {
         do_clear(m_root);
     }
+}
+
+template <typename Key, typename Value>
+Value & Map<Key, Value>::at(const Key & key)
+{
+    TreeNode * node = do_find(key);
+
+    if (node == nullptr) {
+        throw std::out_of_range("");
+    }
+    return node->value();
+}
+
+template <typename Key, typename Value>
+const Value & Map<Key, Value>::at(const Key & key) const
+{
+    TreeNode * node = do_find(key);
+
+    if (node == nullptr) {
+        throw std::out_of_range("");
+    }
+    return node->value();
+}
+
+template <typename Key, typename Value>
+Value & Map<Key, Value>::operator[](const Key & key)
+{
+    TreeNode * inserted_node = nullptr;
+    bool inserted = false;
+    m_root = do_insert(m_root, nullptr, key, Value(), inserted_node, inserted);
+
+    return inserted_node->value();
+}
+
+template <typename Key, typename Value>
+Value & Map<Key, Value>::operator[](Key && key)
+{
+    TreeNode * inserted_node = nullptr;
+    bool inserted = false;
+    m_root = do_insert(m_root, nullptr, std::move(key), Value(), inserted_node, inserted);
+
+    return inserted_node->value();
+}
+
+template <typename Key, typename Value>
+typename Map<Key, Value>::Iterator Map<Key, Value>::begin()
+{
+    if (m_root == nullptr) {
+        return end();
+    }
+
+    TreeNode * min = find_min(m_root);
+    return Iterator(min, min->parent());
+}
+
+template <typename Key, typename Value>
+typename Map<Key, Value>::Iterator Map<Key, Value>::end()
+{
+    return Iterator(nullptr, nullptr);
 }
 
 template <typename Key, typename Value>
@@ -197,15 +425,34 @@ void Map<Key, Value>::clear()
     }
 }
 
-template <typename Key, typename Value>
-void Map<Key, Value>::insert(const Key & key, const Value & value)
+template<typename Key, typename Value>
+std::pair<typename Map<Key, Value>::Iterator, bool> Map<Key, Value>::insert(const std::pair<const Key, Value> & value)
 {
     TreeNode * inserted_node = nullptr;
-    m_root = do_insert(m_root, nullptr, key, value, inserted_node);
+    bool inserted = true;
+    m_root = do_insert(m_root, nullptr, value.first, value.second, inserted_node, inserted);
 
-    do_insert_repair(inserted_node);
+    if (inserted) {
+        do_insert_repair(inserted_node);
+        ++m_size;
+    }
 
-    ++m_size;
+    return std::make_pair(Iterator(inserted_node), inserted);
+}
+
+template<typename Key, typename Value>
+std::pair<typename Map<Key, Value>::Iterator, bool> Map<Key, Value>::insert(std::pair<const Key, Value> && value)
+{
+    TreeNode * inserted_node = nullptr;
+    bool inserted = true;
+    m_root = do_insert(m_root, nullptr, std::move(value.first), std::move(value.second), inserted_node, inserted);
+
+    if (inserted) {
+        do_insert_repair(inserted_node);
+        ++m_size;
+    }
+
+    return std::make_pair(Iterator(inserted_node), inserted);
 }
 
 template <typename Key, typename Value>
@@ -269,6 +516,21 @@ void Map<Key, Value>::remove(const Key & key)
     do_remove_double_black_repair(child_node, parent, sibling);
 
     --m_size;
+}
+
+template <typename Key, typename Value>
+typename Map<Key, Value>::TreeNode * Map<Key, Value>::do_copy(TreeNode * parent, TreeNode * source_node)
+{
+    TreeNode * node = nullptr;
+
+    if (source_node != nullptr) {
+        node = new TreeNode(parent, source_node->key(), source_node->value());
+        node->set_color(source_node->is_black());
+        node->left_child() = do_copy(node, source_node->left_child());
+        node->right_child() = do_copy(node, source_node->right_child());
+    }
+
+    return node;
 }
 
 template <typename Key, typename Value>
@@ -414,7 +676,7 @@ typename Map<Key, Value>::TreeNode * Map<Key, Value>::find_one_non_leaf_child_no
 }
 
 template <typename Key, typename Value>
-typename Map<Key, Value>::TreeNode * Map<Key, Value>::find(const Key & key) const
+typename Map<Key, Value>::TreeNode * Map<Key, Value>::do_find(const Key & key) const
 {
     return do_find(m_root, key);
 }
@@ -438,7 +700,17 @@ typename Map<Key, Value>::TreeNode * Map<Key, Value>::do_find(TreeNode * node, c
 }
 
 template <typename Key, typename Value>
-typename Map<Key, Value>::TreeNode * Map<Key, Value>::find_max(TreeNode * node) const
+typename Map<Key, Value>::TreeNode * Map<Key, Value>::find_min(TreeNode * node)
+{
+    if (node->left_child() == nullptr) {
+        return node;
+    }
+
+    return find_min(node->left_child());
+}
+
+template <typename Key, typename Value>
+typename Map<Key, Value>::TreeNode * Map<Key, Value>::find_max(TreeNode * node)
 {
     if (node->right_child() == nullptr) {
         return node;
@@ -448,19 +720,21 @@ typename Map<Key, Value>::TreeNode * Map<Key, Value>::find_max(TreeNode * node) 
 }
 
 template <typename Key, typename Value>
-typename Map<Key,Value>::TreeNode * Map<Key, Value>::do_insert(TreeNode * node, TreeNode * parent, const Key & key, const Value & value, TreeNode* & inserted_node)
+template <typename K, typename V>
+typename Map<Key,Value>::TreeNode * Map<Key, Value>::do_insert(TreeNode * node, TreeNode * parent, K && key, V && value, TreeNode* & inserted_node, bool & inserted)
 {
     if (node == nullptr) {
-        inserted_node = new TreeNode(parent, key, value);
+        inserted_node = new TreeNode(parent, std::forward<K>(key), std::forward<V>(value));
         return inserted_node;
     }
 
     if (key < node->key()) {
-        node->left_child() = do_insert(node->left_child(), node, key, value, inserted_node);
+        node->left_child() = do_insert(node->left_child(), node, std::forward<K>(key), std::forward<V>(value), inserted_node, inserted);
     } else if (key > node->key()) {
-        node->right_child() = do_insert(node->right_child(), node, key, value, inserted_node);
+        node->right_child() = do_insert(node->right_child(), node, std::forward<K>(key), std::forward<V>(value), inserted_node, inserted);
     } else {
         inserted_node = node;
+        inserted = false;
     }
 
     return node;
