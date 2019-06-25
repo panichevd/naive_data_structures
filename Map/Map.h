@@ -182,15 +182,20 @@ public:
 public:
     void clear();
 
-    // TODO: insert with hint
     std::pair<Iterator, bool> insert(const ValueType & value);
     std::pair<Iterator, bool> insert(ValueType && value);
+    std::pair<Iterator, bool> insert(Iterator hint, const ValueType & value);
+    std::pair<Iterator, bool> insert(Iterator hint, ValueType && value);
 
-    // TODO: erase in range, erase by key
+    template <typename ... Args1, typename ... Args2>
+    std::pair<Iterator, bool> emplace(std::piecewise_construct_t, std::tuple<Args1...> first_args, std::tuple<Args2...> second_args);
+
     Iterator erase(Iterator pos);
+    Iterator erase(Iterator first, Iterator last);
+    size_t erase(const Key & key);
 
-    // TODO
-    //TreeNode * find(const Key & key) const;
+public:
+    Iterator find(const Key & key) const;
 
 private:
     TreeNode * do_copy(TreeNode * parent, TreeNode * source_node);
@@ -284,8 +289,7 @@ Map<Key, Value>::Iterator::Iterator(TreeNode * current) :
     } else {
         if (m_current->left_child() != nullptr) {
             m_previous = m_current->left_child();
-        }
-        else {
+        } else {
             m_previous = m_current->parent();
         }
     }
@@ -516,7 +520,7 @@ const Value & Map<Key, Value>::at(const Key & key) const
 template <typename Key, typename Value>
 Value & Map<Key, Value>::operator[](const Key & key)
 {
-    TreeNode * inserted_node = nullptr;
+    const TreeNode * inserted_node = nullptr;
     bool inserted = true;
     m_root = do_insert(m_root, nullptr, key, Value(), inserted_node, inserted);
 
@@ -629,6 +633,69 @@ std::pair<typename Map<Key, Value>::Iterator, bool> Map<Key, Value>::insert(Valu
     return std::make_pair(Iterator(inserted_node), inserted);
 }
 
+template<typename Key, typename Value>
+std::pair<typename Map<Key, Value>::Iterator, bool> Map<Key, Value>::insert(Iterator hint, const ValueType & value)
+{
+    TreeNode * node = hint.m_current;
+
+    // Go up the tree while we're in the left  subtree and the key is greather than parent's
+    //                   or we're in the right subtree and the key is less     than parent's
+    while (node != m_root && (
+              (node->parent()->left_child()  == node && value.first > node->parent()->value().first) ||
+              (node->parent()->right_child() == node && value.first < node->parent()->value().first)))
+    {
+        node = node->parent();
+    }
+
+    TreeNode * inserted_node = nullptr;
+    bool inserted = true;
+    do_insert(node, nullptr, value.first, value.second, inserted_node, inserted);
+
+    if (inserted) {
+        do_insert_repair(inserted_node);
+        ++m_size;
+    }
+
+    return std::make_pair(Iterator(inserted_node), inserted);
+}
+
+template<typename Key, typename Value>
+std::pair<typename Map<Key, Value>::Iterator, bool> Map<Key, Value>::insert(Iterator hint, ValueType && value)
+{
+    TreeNode * node = hint.m_current;
+
+    // Go up the tree while we're in the left  subtree and the key is greather than parent's
+    //                   or we're in the right subtree and the key is less     than parent's
+    while (node != m_root && (
+              (node->parent()->left_child()  == node && value.first > node->parent()->value().first) ||
+              (node->parent()->right_child() == node && value.first < node->parent()->value().first)))
+    {
+        node = node->parent();
+    }
+
+    TreeNode * inserted_node = nullptr;
+    bool inserted = true;
+    do_insert(node, nullptr, std::move(value.first), std::move(value.second), inserted_node, inserted);
+
+    if (inserted) {
+        do_insert_repair(inserted_node);
+        ++m_size;
+    }
+
+    return std::make_pair(Iterator(inserted_node), inserted);
+}
+
+template <typename Key, typename Value>
+template <typename ... Args1, typename ... Args2>
+std::pair<typename Map<Key, Value>::Iterator, bool> Map<Key, Value>::emplace(
+    std::piecewise_construct_t pwc,
+    std::tuple<Args1...> first_args,
+    std::tuple<Args2...> second_args)
+{
+    // TODO: well, here we must construct the key from the first tuple and start actual emplacing
+    return std::make_pair(end(), true);
+}
+
 template <typename Key, typename Value>
 typename Map<Key, Value>::Iterator Map<Key, Value>::erase(Iterator pos)
 {
@@ -696,6 +763,34 @@ typename Map<Key, Value>::Iterator Map<Key, Value>::erase(Iterator pos)
     do_remove_double_black_repair(child_node, parent, sibling);
 
     return Iterator(next);
+}
+
+template <typename Key, typename Value>
+typename Map<Key, Value>::Iterator Map<Key, Value>::erase(Iterator first, Iterator last)
+{
+    while (first != last) {
+        first = erase(first);
+    }
+
+    return first;
+}
+
+template <typename Key, typename Value>
+size_t Map<Key, Value>::erase(const Key & key)
+{
+    auto it = find(key);
+    if (it == end()) {
+        return 0;
+    }
+
+    erase(it);
+    return 1;
+}
+
+template <typename Key, typename Value>
+typename Map<Key, Value>::Iterator Map<Key, Value>::find(const Key & key) const
+{
+    return Iterator(do_find(key));
 }
 
 template <typename Key, typename Value>
