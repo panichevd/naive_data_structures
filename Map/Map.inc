@@ -476,6 +476,14 @@ std::pair<typename Map<Key, Value>::Iterator, bool> Map<Key, Value>::insert(Iter
 }
 
 template <typename Key, typename Value>
+template <typename ... Args>
+std::pair<typename Map<Key, Value>::Iterator, bool> Map<Key, Value>::emplace(Args && ... args)
+{
+    ValueType value(std::forward<Args>(args)...);
+    return insert(std::move(value));
+}
+
+template <typename Key, typename Value>
 typename Map<Key, Value>::Iterator Map<Key, Value>::erase(Iterator pos)
 {
     --m_size;

@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <utility>
+#include <tuple>
 
 namespace naive {
 
@@ -185,8 +186,8 @@ public:
     std::pair<Iterator, bool> insert(Iterator hint, const ValueType & value);
     std::pair<Iterator, bool> insert(Iterator hint, ValueType && value);
 
-    template <typename ... Args1, typename ... Args2>
-    std::pair<Iterator, bool> emplace(std::piecewise_construct_t, std::tuple<Args1...> first_args, std::tuple<Args2...> second_args);
+    template <typename ... Args>
+    std::pair<Iterator, bool> emplace(Args && ... args);
 
     Iterator erase(Iterator pos);
     Iterator erase(Iterator first, Iterator last);
@@ -228,18 +229,6 @@ private:
     TreeNode * m_root = nullptr;
     size_t m_size = 0;
 };
-
-template <typename Key, typename Value>
-template <typename ... Args1, typename ... Args2>
-std::pair<typename Map<Key, Value>::Iterator, bool> Map<Key, Value>::emplace(
-    std::piecewise_construct_t pwc,
-    std::tuple<Args1...> first_args,
-    std::tuple<Args2...> second_args)
-{
-    //Key k(std::get<sizeof...(Args1)>(first_args));
-    // TODO: well, here we must construct the key from the first tuple and start actual emplacing
-    return std::make_pair(end(), true);
-}
 
 } /*namespace naive*/
 
